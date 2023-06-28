@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	VERSION = "0.1 dev"
+	VERSION = "v0.1.1"
 )
 
 var (
@@ -22,7 +22,7 @@ var (
 )
 
 func help() {
-	fmt.Printf("Dev Proxy (version: %s)\n", VERSION)
+	fmt.Printf("Dev Proxy (%s)\n", VERSION)
 	fmt.Printf(" : A solution that addresses security issues like CORS\n")
 	fmt.Printf(" : during the development phase by specifying the origin\n")
 	fmt.Printf(" : of both front-end and back-end servers or external API\n")
