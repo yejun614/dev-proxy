@@ -9,8 +9,16 @@ $ dev-proxy
 $ dev-proxy -addr localhost:8000
 $ dev-proxy -front http://localhost:3000 -back http://localhost:4000
 $ dev-proxy -addr localhost:8000 -front http://localhost:3000 -back http://localhost:4000
+$ dev-proxy -addr [proxy server address] -favicon [favicon file path (optional)]
 $ dev-proxy -front [server1] -back [server2] -api [server3] -favicon [favicon.ico]
 ```
+
+# Issues
+- If you encounter any bugs, issues, or questions while using the software, please register on our [Issues page](https://github.com/yejun614/dev-proxy/issues) on Github.
+
+# Contributions
+- We really appreciate people who want to contribute to open source software.
+- After you fork your repository, add or remove new features or fix bugs, then request a merge.
 
 # LICENSE
 ```

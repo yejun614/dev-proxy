@@ -2,17 +2,17 @@ package main
 
 import (
 	"os"
-    "log"
-    "fmt"
-    "strings"
-    "github.com/gofiber/fiber/v2"
-    "github.com/gofiber/fiber/v2/middleware/proxy"
-    "github.com/gofiber/fiber/v2/middleware/logger"
-    "github.com/gofiber/fiber/v2/middleware/favicon"
+	"log"
+	"fmt"
+	"strings"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/proxy"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/favicon"
 )
 
 const (
-	VERSION = "0.1 dev"
+	VERSION = "v0.1.1"
 )
 
 var (
@@ -22,7 +22,7 @@ var (
 )
 
 func help() {
-	fmt.Printf("Dev Proxy (version: %s)\n", VERSION)
+	fmt.Printf("Dev Proxy (%s)\n", VERSION)
 	fmt.Printf(" : A solution that addresses security issues like CORS\n")
 	fmt.Printf(" : during the development phase by specifying the origin\n")
 	fmt.Printf(" : of both front-end and back-end servers or external API\n")
@@ -47,7 +47,7 @@ func parseFlags() {
 	Flags = make(map[string]string)
 	Flags["addr"] = "localhost:8000"
 
-	fmt.Printf("Dev Proxy Server\n")
+	log.Printf("Dev Proxy Server\n")
 
 	for i, val := range os.Args {
 		if i % 2 == 0 {
@@ -68,16 +68,19 @@ func parseFlags() {
 			Addr = arg
 		} else if key == "favicon" {
 			App.Use(favicon.New(favicon.Config{ File: arg }))
-		} else if arg[:4] == "http" {
-			fmt.Printf(" [Proxy ] SERVER -> %s -> %s\n", key, arg)
+		} else if len(arg) >= 4 && arg[:4] == "http" {
+			log.Printf(" [Proxy ] SERVER -> %s -> %s\n", key, arg)
 			Flags[key] = arg
-		} else {
-			fmt.Printf(" [Static] SERVER -> %s -> %s\n", key, arg)
+		} else if _, err := os.Stat(arg); err == nil {
+			log.Printf(" [Static] SERVER -> %s -> %s\n", key, arg)
 			App.Static(key, arg)
+		} else {
+			log.Printf("ERROR: Directory not found. (%s)\n\n", arg);
+			help()
 		}
 	}
 
-	fmt.Printf(" [Listen] %s -> SERVER\n", Addr)
+	log.Printf(" [Listen] %s -> SERVER\n", Addr)
 }
 
 func hello(c *fiber.Ctx) error {
