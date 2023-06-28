@@ -40,7 +40,7 @@ func help() {
 
 func parseFlags() {
 	lenArgs := len(os.Args)
-	if (lenArgs != 1 && lenArgs % 2 == 0) || os.Args[1] == "-help" || os.Args[1] == "-h" {
+	if lenArgs != 1 && lenArgs % 2 == 0 {
 		help()
 	}
 
@@ -57,6 +57,11 @@ func parseFlags() {
 		}
 
 		key := strings.ToLower(val[1:])
+
+		if key == "h" || key == "help" {
+			help()
+		}
+
 		arg := os.Args[i + 1]
 
 		if key == "addr" {
