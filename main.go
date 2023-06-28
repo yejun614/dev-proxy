@@ -2,13 +2,13 @@ package main
 
 import (
 	"os"
-    "log"
-    "fmt"
-    "strings"
-    "github.com/gofiber/fiber/v2"
-    "github.com/gofiber/fiber/v2/middleware/proxy"
-    "github.com/gofiber/fiber/v2/middleware/logger"
-    "github.com/gofiber/fiber/v2/middleware/favicon"
+	"log"
+	"fmt"
+	"strings"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/proxy"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/favicon"
 )
 
 const (
