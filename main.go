@@ -68,12 +68,15 @@ func parseFlags() {
 			Addr = arg
 		} else if key == "favicon" {
 			App.Use(favicon.New(favicon.Config{ File: arg }))
-		} else if arg[:4] == "http" {
-			fmt.Printf(" [Proxy ] SERVER -> %s -> %s\n", key, arg)
+		} else if len(arg) >= 4 && arg[:4] == "http" {
 			Flags[key] = arg
 		} else {
 			fmt.Printf(" [Static] SERVER -> %s -> %s\n", key, arg)
+		} else if _, err := os.Stat(arg); err == nil {
 			App.Static(key, arg)
+		} else {
+			log.Printf("ERROR: Directory not found. (%s)\n\n", arg);
+			help()
 		}
 	}
 
