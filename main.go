@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/proxy"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/favicon"
@@ -110,6 +111,7 @@ func main() {
 
 	// Add middlewares
 	App.Use(logger.New())
+	App.Use(cors.New())
 
 	// Parsing command line flags
 	parseFlags()
