@@ -119,5 +119,6 @@ func main() {
 	App.All("/:key/*", proxyAnother)
 
 	// Start server
+	log.Println("Press Ctrl+C to shut down the server.")
 	log.Fatal(App.Listen(Addr))
 }
