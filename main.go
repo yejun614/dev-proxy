@@ -69,10 +69,10 @@ func parseFlags() {
 		} else if key == "favicon" {
 			App.Use(favicon.New(favicon.Config{ File: arg }))
 		} else if len(arg) >= 4 && arg[:4] == "http" {
-			log.Printf(" [Proxy ] SERVER -> %s -> %s\n", key, arg)
+			log.Printf("[Proxy ] SERVER -> %s -> %s\n", key, arg)
 			Flags[key] = arg
 		} else if _, err := os.Stat(arg); err == nil {
-			log.Printf(" [Static] SERVER -> %s -> %s\n", key, arg)
+			log.Printf("[Static] SERVER -> %s -> %s\n", key, arg)
 			App.Static(key, arg)
 		} else {
 			log.Printf("ERROR: Directory not found. (%s)\n\n", arg);
@@ -80,7 +80,7 @@ func parseFlags() {
 		}
 	}
 
-	log.Printf(" [Listen] %s -> SERVER\n", Addr)
+	log.Printf("[Listen] %s -> SERVER\n", Addr)
 }
 
 func hello(c *fiber.Ctx) error {
