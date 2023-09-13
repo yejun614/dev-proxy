@@ -1,17 +1,16 @@
-![banner](dev-proxy-banner.png)
+![banner](./img/dev-proxy-banner.png)
 
 # Dev Proxy Server
 A solution that addresses security issues like CORS during the development phase by specifying the origin of both front-end and back-end servers or external API servers as the same place.
 
 # Usage
-```bash
-$ dev-proxy
-$ dev-proxy -addr localhost:8000
-$ dev-proxy -front http://localhost:3000 -back http://localhost:4000
-$ dev-proxy -addr localhost:8000 -front http://localhost:3000 -back http://localhost:4000
-$ dev-proxy -addr [proxy server address] -favicon [favicon file path (optional)]
-$ dev-proxy -front [server1] -back [server2] -api [server3] -favicon [favicon.ico]
-```
+[Manual(English)](https://github.com/yejun614/dev-proxy/wiki/Manual(English)) | [매뉴얼(한국어)](https://github.com/yejun614/dev-proxy/wiki/Manual(%ED%95%9C%EA%B5%AD%EC%96%B4))
+1. Download dev-proxy for your platform ([v2 release](https://github.com/yejun614/dev-proxy/releases/tag/v2.0.0))
+2. Just run it!
+
+# Admin page
+Please access **/dev-proxy/admin**
+![admin](./img/admin-page.png)
 
 # Issues
 - If you encounter any bugs, issues, or questions while using the software, please register on our [Issues page](https://github.com/yejun614/dev-proxy/issues) on Github.
