@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Dev Proxy</title>
+
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                font-family: monospace;
+            }
+
+            .center {
+                text-align: center;
+            }
+
+            .column.right {
+                display: flex;
+                justify-content: flex-end;
+            }
+
+            button {
+                padding: 8px;
+                margin: 5px;
+                border: 0;
+                background-color: #eee;
+                cursor: pointer;
+            }
+
+            button:hover {
+                background-color: #aaa;
+            }
+
+            button.submit {
+                padding: 10px;
+                background-color: #aaa;
+            }
+
+            button.submit:hover {
+                background-color: #777;
+                color: white;
+            }
+
+            button.danger:hover {
+                background-color: #ffb8b8;
+            }
+
+            input[type="text"] {
+                padding: 5px;
+            }
+
+            input:focus-visible {
+                outline: none;
+            }
+
+            main {
+                width: 100%;
+                max-width: 600px;
+                margin: 50px auto;
+                padding: 0 10px;
+                display: flex;
+                flex-direction: column;
+            }
+
+            main > section {
+                margin: 20px 0;
+                display: flex;
+                flex-direction: column;
+            }
+
+            main > section > * {
+                margin: 5px 0;
+            }
+
+            main textarea {
+                resize: vertical;
+                padding: 5px;
+            }
+
+            table, th, td {
+                border-collapse: collapse;
+                border: 1px solid gray;
+            }
+
+            td {
+                padding: 5px;
+                word-wrap: break-word;
+            }
+
+            td input {
+                width: 95%;
+                padding: 0 !important;
+            }
+
+            tbody tr:hover {
+                background-color: #aaa;
+                cursor: pointer;
+            }
+
+            thead td {
+                background-color: #eee;
+            }
+
+            #proxies {
+                width: 600px;
+                table-layout: fixed;
+            }
+
+            #conf-errors li {
+                list-style: none;
+                color: red;
+            }
+        </style>
+    </head>
+
+    <body>
+        <form id="data" method="post" action="/dev-proxy/data">
+            <main>
+                <section class="center">
+                    <h1>Dev Proxy</h1>
+                    <span>The proxy server for web developers</span>
+                </section>
+                
+                <section>
+                    <h2>Configuration File</h2>
+                    <input type="text" name="filepath" placeholder="proxy.dev.json" />
+                    <textarea name="raw" rows="10" placeholder="File Raw Data"></textarea>
+                    <ul id="conf-errors">
+                    </ul>
+                    <input type="file" name="file" accept="text/json" />
+                </section>
+
+                <section>
+                    <h2>Server Address</h2>
+                    <input type="text" name="addr" placeholder="localhost:8000" />
+                </section>
+                
+                <section>
+                    <h2>Proxies & Statics</h2>
+                    <table id="proxies">
+                        <thead>
+                            <tr>
+                                <td width="15px"><input name="check-all" type="checkbox" /></td>
+                                <td width="10%">Type</td>
+                                <td width="20%">Name</td>
+                                <td>URL</td>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                        <tfoot>
+                            <td colspan="2">
+                                <select id="input-type-select">
+                                    <option value="proxy">proxy</option>
+                                    <option value="static">static</option>
+                                </select>
+                            </td>
+                            <td>
+                                <input type="text" id="input-name-text" placeholder="Name" />
+                            </td>
+                            <td>
+                                <input type="text" id="input-url-text" placeholder="URL" />
+                            </td>
+                        </tfoot>
+                    </table>
+                    <div class="column right">
+                        <button id="set-item-btn">Set Item</button>
+                        <button id="del-item-btn" class="danger">Delete Item</button>
+                    </div>
+                </section>
+
+                <section class="center">
+                    <button id="save-btn" class="submit" type="submit">SAVE</button>
+                    <span><i>If you do not want to save your settings, please reload the page.</i></span>
+                </section>
+            </main>
+        </form>
+
+        <script>
+            let data = {};
+            let checked = {};
+            const form = document.forms.data;
+
+            function showTable() {
+                let html = '';
+                const table = document.querySelector("#proxies tbody");
+                table.innerHTML = '';
+                for (const item in data.data.proxies) {
+                    const value = data.data.proxies[item];
+                    html = `<tr onclick="setInputItem('proxy', '${item}', '${value}');"><td><input class="checkbox" type="checkbox" onclick="checkItem('proxy', '${item}')" /></td><td class="type">proxy</td><td class="name">${item}</td><td class="value">${value}</td></tr>`;
+                    table.innerHTML += html;
+                }
+                for (const item in data.data.statics) {
+                    const value = data.data.statics[item];
+                    html = `<tr onclick="setInputItem('static', '${item}', '${value}');"><td><input class="checkbox" type="checkbox" onclick="checkItem('static', '${item}')" /></td><td class="type">statics</td><td class="name">${item}</td><td class="value">${value}</td></tr>`;
+                    table.innerHTML += html;
+                }
+            }
+
+            function readRawData(raw) {
+                const confErrors = document.getElementById("conf-errors");
+                confErrors.innerHTML = '';
+                let isError = false;
+
+                try {
+                    const buf = raw == undefined ? data : JSON.parse(raw);
+
+                    if (buf.filepath == undefined) {
+                        confErrors.innerHTML += `<li>[!] "filepath" field is required.</li>`;
+                        isError = true;
+                    } else if (typeof(buf.filepath) !== "string") {
+                        confErrors.innerHTML += `<li>[!] "filepath" field is expected to be a string.</li>`;
+                        isError = true;
+                    }
+                    if (buf.data == undefined) {
+                        confErrors.innerHTML += `<li>[!] "data" field is required.</li>`;
+                        isError = true;
+                    } else if (buf.data.addr == undefined) {
+                        confErrors.innerHTML += `<li>[!] "data.addr" field is required.</li>`;
+                        isError = true;
+                    } else if (typeof(buf.data.addr) !== "string") {
+                        confErrors.innerHTML += `<li>[!] "data.addr" field is expected to be a string.</li>`;
+                        isError = true;
+                    }
+
+                    if (!isError) {
+                        data = buf
+                        show();
+                        return true;
+                    }
+                } catch (e) {
+                    confErrors.innerHTML += `<li>[!] ${e}</li>`;
+                }
+                return false;
+            }
+
+            function rawChange() {
+                readRawData(form["raw"].value);
+            }
+
+            function fileChange(e) {
+                const f = e.target.files[0];
+                if (f) {
+                    const reader = new FileReader();
+                    reader.onload = (readerEvent) => {
+                        const raw = readerEvent.target.result;
+                        form["raw"].value = raw;
+                        readRawData(raw);
+                    }
+                    reader.readAsText(f);
+                }
+            }
+
+            function addrChange() {
+                data.data.addr = form["addr"].value;
+                readRawData();
+            }
+
+            function setInputItem(type, name, url) {
+                document.getElementById("input-type-select").value = type;
+                document.getElementById("input-name-text").value = name;
+                document.getElementById("input-url-text").value = url;
+            }
+
+            function checkItem(type, name) {
+                const key = `${type}/${name}`;
+                const value = checked[key];
+                checked[key] = !(value == undefined ? false : value);
+            }
+
+            function checkAll(e) {
+                const value = e.target.checked;
+                const table = document.querySelector("#proxies tbody");
+                for (const tr of table.children) {
+                    tr.querySelector(".checkbox").checked = value;
+                    const type = tr.querySelector(".type").innerText;
+                    const name = tr.querySelector(".name").innerText;
+                    checkItem(type, name);
+                }
+            }
+
+            function setItem(e) {
+                e.preventDefault();
+
+                let type = document.getElementById("input-type-select").value;
+                let name = document.getElementById("input-name-text").value;
+                let url = document.getElementById("input-url-text").value;
+
+                if (type === "proxy") {
+                    type = "proxies";
+                } else if (type === "static") {
+                    type = "statics";
+                }
+
+                if (data.data[type] == undefined) {
+                    data.data[type] = {};
+                }
+
+                data.data[type][name] = url;
+
+                if (readRawData()) {
+                    setInputItem("proxy", "", "");
+                }
+            }
+
+            function deleteItems(e) {
+                e.preventDefault();
+                form["check-all"].checked = false;
+                for (const item in checked) {
+                    if (!checked[item]) {
+                        continue;
+                    }
+
+                    let key = item.split("/");
+                    let type = key[0];
+                    let name = key[1];
+
+                    if (type === "proxy") {
+                    type = "proxies";
+                    } else if (type === "static") {
+                        type = "statics";
+                    }
+
+                    delete data.data[type][name];
+                }
+                readRawData();
+            }
+
+            async function save(e) {
+                e.preventDefault();
+
+                if (!readRawData()) {
+                    alert("ERROR!");
+                    return;
+                }
+
+                const response = await fetch(
+                    "/dev-proxy/data",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(data),
+                    },
+                );
+
+                if (response.status === 200) {
+                    alert("saved");
+                } else {
+                    alert("failed");
+                }
+            }
+
+            function show() {
+                checked = {};
+                form["filepath"].value = data.filepath;
+                form["raw"].value = JSON.stringify(data, null, 2);
+                form["addr"].value = data.data.addr;
+                showTable();
+            }
+
+            (async () => {
+                const response = await fetch("/dev-proxy/data")
+                data = await response.json();
+
+                show();
+
+                form["raw"].addEventListener("change", rawChange);
+                form["file"].addEventListener("change", fileChange);
+                form["addr"].addEventListener("change", addrChange);
+                form["check-all"].addEventListener("change", checkAll);
+                document.getElementById("set-item-btn").addEventListener("click", setItem);
+                document.getElementById("del-item-btn").addEventListener("click", deleteItems);
+                document.getElementById("save-btn").addEventListener("click", save);
+            })();
+        </script>
+    </body>
+</html>

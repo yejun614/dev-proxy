@@ -1,126 +1,229 @@
 package main
 
 import (
-	"os"
-	"log"
 	"fmt"
-	"strings"
+	"log"
+	"net/url"
+	"os"
+	"path/filepath"
+
+	fasthttpWebsocket "github.com/fasthttp/websocket"
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/proxy"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/favicon"
+	"github.com/gofiber/fiber/v2/middleware/proxy"
+	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/kirsle/configdir"
+	"github.com/yejun614/dev-proxy/data"
 )
 
 const (
-	VERSION = "v0.1.1"
+	VERSION = "v1.0"
 )
 
 var (
-	App *fiber.App
-	Flags map[string]string
-	Addr string = "localhost:8000"
+	DB     *data.Data[ProxyData]
+	App    *fiber.App
+	store  = session.New()
+	wsFunc = websocket.New(websocketHandler)
+	wsChan = make(chan string, 10)
 )
 
-func help() {
-	fmt.Printf("Dev Proxy (%s)\n", VERSION)
-	fmt.Printf(" : A solution that addresses security issues like CORS\n")
-	fmt.Printf(" : during the development phase by specifying the origin\n")
-	fmt.Printf(" : of both front-end and back-end servers or external API\n")
-	fmt.Printf(" : servers as the same place.\n")
-
-	fmt.Printf("\n[Usage]\n")
-	fmt.Printf(" > dev-proxy\n")
-	fmt.Printf(" > dev-proxy -addr localhost:8000\n")
-	fmt.Printf(" > dev-proxy -front http://localhost:3000 -back http://localhost:4000\n")
-	fmt.Printf(" > dev-proxy -addr localhost:8000 -front http://localhost:3000 -back http://localhost:4000\n")
-	fmt.Printf(" > dev-proxy -front [server1] -back [server2] -api [server3]\n")
-
-	os.Exit(1)
+type ProxyData struct {
+	Addr    string            `json:"addr" xml:"addr" form:"addr"`
+	Proxies map[string]string `json:"proxies" xml:"proxies" form:"proxies"`
+	Statics map[string]string `json:"statics" xml:"statics" form:"statics"`
 }
 
-func parseFlags() {
-	lenArgs := len(os.Args)
-	if lenArgs != 1 && lenArgs % 2 == 0 {
-		help()
-	}
-
-	Flags = make(map[string]string)
-	Flags["addr"] = "localhost:8000"
-
-	log.Printf("Dev Proxy Server\n")
-
-	for i, val := range os.Args {
-		if i % 2 == 0 {
+func addStatics() {
+	for key := range DB.Data.Statics {
+		value := DB.Data.Statics[key]
+		if _, err := os.Stat(value); os.IsNotExist(err) {
+			log.Printf("%s: %s directory not found\n", key, value)
 			continue
-		} else if val[0] != '-' {
-			help()
 		}
-
-		key := strings.ToLower(val[1:])
-
-		if key == "h" || key == "help" {
-			help()
-		}
-
-		arg := os.Args[i + 1]
-
-		if key == "addr" {
-			Addr = arg
-		} else if key == "favicon" {
-			App.Use(favicon.New(favicon.Config{ File: arg }))
-		} else if len(arg) >= 4 && arg[:4] == "http" {
-			log.Printf("[Proxy ] SERVER -> %s -> %s\n", key, arg)
-			Flags[key] = arg
-		} else if _, err := os.Stat(arg); err == nil {
-			log.Printf("[Static] SERVER -> %s -> %s\n", key, arg)
-			App.Static(key, arg)
-		} else {
-			log.Printf("ERROR: Directory not found. (%s)\n\n", arg);
-			help()
-		}
+		App.Static(key, value)
 	}
-
-	log.Printf("[Listen] %s -> SERVER\n", Addr)
 }
 
 func hello(c *fiber.Ctx) error {
 	return c.SendString("DEV PROXY SERVER")
 }
 
-func proxyAnother(c *fiber.Ctx) error {
-	key := strings.ToLower(c.Params("key"))
-	url := c.Params("*")
-	proxyAddr, check := Flags[key]
-
+func sessionRedirect(c *fiber.Ctx) error {
+	// session
+	sess, err := store.Get(c)
+	if err != nil {
+		log.Fatal(err)
+	}
+	sessKey := sess.Get("key")
+	// get key and url
+	key := c.Params("key")
+	log.Printf("key: %s\n", key)
+	// check proxies
+	_, check := DB.Data.Proxies[key]
 	if !check {
+		_, check = DB.Data.Statics[key]
+	}
+	if check {
+		if key != "favicon.ico" {
+			// set session
+			sess.Set("key", key)
+			log.Printf("session save: %s\n", key)
+		}
+	} else if sessKey != nil {
+		// redirect
+		log.Printf("session redirect: %s\n", c.Path())
+		c.Path(fmt.Sprintf("/%s/%s", sessKey, c.Path()[1:]))
+	}
+	// session save
+	if err := sess.Save(); err != nil {
+		log.Fatal(err)
+	}
+	// next
+	return c.Next()
+}
+
+func proxyAnother(c *fiber.Ctx) error {
+	// get key and url
+	key := c.Params("key")
+	// check proxies
+	proxyAddr, check := DB.Data.Proxies[key]
+	if !check {
+		// not found error
 		return c.SendStatus(fiber.StatusNotFound)
 	}
-
-	if err := proxy.Do(c, proxyAddr + "/" + url); err != nil {
+	// proxy url
+	proxyUrl := proxyAddr + c.Path()[len(key)+1:]
+	// websocket
+	if websocket.IsWebSocketUpgrade(c) {
+		c.Locals("allowed", true)
+		log.Println("websocket start")
+		log.Printf("chan send %s\n", proxyUrl)
+		wsChan <- proxyUrl
+		return wsFunc(c)
+	}
+	// create proxy url
+	log.Printf("Proxy: %s -> %s\n", c.Path(), proxyUrl)
+	if err := proxy.DoRedirects(c, proxyUrl, 100); err != nil {
 		return err
 	}
-
 	c.Response().Header.Del(fiber.HeaderServer)
+	// done
 	return nil
 }
 
-func main() {
-	// Create Fiber App
-	App = fiber.New()
+func websocketHandler(c *websocket.Conn) {
+	var (
+		closeChan = make(chan bool)
+		client    *fasthttpWebsocket.Conn
+	)
 
-	// Add middlewares
+	proxyUrl, err := url.Parse(<-wsChan)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	proxyUrl.Scheme = "ws"
+	log.Printf("ws proxyUrl: %s\n", proxyUrl.String())
+	client, _, err = fasthttpWebsocket.DefaultDialer.Dial(proxyUrl.String(), nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer client.Close()
+
+	go func() {
+		var (
+			mt  int
+			msg []byte
+			err error
+		)
+		for {
+			// client -> proxy
+			if mt, msg, err = c.ReadMessage(); err != nil {
+				log.Println(err)
+				break
+			}
+			// debug
+			log.Printf("client -> proxy: %s\n", string(msg))
+			// proxy -> server
+			if err = client.WriteMessage(mt, msg); err != nil {
+				log.Println(err)
+				break
+			}
+		}
+		closeChan <- true
+		log.Println("ws closed from client")
+	}()
+
+	go func() {
+		var (
+			mt  int
+			msg []byte
+			err error
+		)
+		for {
+			// proxy <- server
+			if mt, msg, err = client.ReadMessage(); err != nil {
+				log.Println(err)
+				break
+			}
+			// debug
+			log.Printf("client <- proxy: %s\n", string(msg))
+			// client <- proxy
+			if err = c.WriteMessage(mt, msg); err != nil {
+				log.Println(err)
+				break
+			}
+		}
+		closeChan <- true
+		log.Println("ws closed from server")
+	}()
+
+	<-closeChan
+	log.Println("websocket done")
+}
+
+func StartServer() {
+	// config path
+	configFile := "./proxy.dev.json"
+	configPath := configdir.LocalConfig("dev-proxy")
+	err := configdir.MakePath(configPath)
+	if err == nil {
+		configFile = filepath.Join(configPath, "./proxy.dev.json")
+	}
+	// database
+	DB = data.New[ProxyData](configFile, ProxyData{
+		Addr: "localhost:8000",
+	})
+	// create fiber app
+	App = fiber.New()
+	// add middlewares
 	App.Use(logger.New())
 	App.Use(cors.New())
-
-	// Parsing command line flags
-	parseFlags()
-
-	// Add routes
+	// hello routes
 	App.All("/", hello)
+	// admin routes
+	admin := App.Group("/dev-proxy/")
+	admin.Get("/admin", adminGetPage)
+	admin.Get("/data", adminGetData)
+	admin.Post("/data", adminPostData)
+	// session redirect middleware
+	App.Use("/:key/*", sessionRedirect)
+	// add statics
+	addStatics()
+	// add routes
 	App.All("/:key/*", proxyAnother)
-
-	// Start server
+	// start fiber app
 	log.Println("Press Ctrl+C to shut down the server.")
-	log.Fatal(App.Listen(Addr))
+	App.Listen(DB.Data.Addr)
+}
+
+func main() {
+	for {
+		log.Println("Server Start")
+		StartServer()
+	}
 }
