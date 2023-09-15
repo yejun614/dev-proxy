@@ -194,6 +194,7 @@ func StartServer() {
 	if err == nil {
 		configFile = filepath.Join(configPath, "./proxy.dev.json")
 	}
+	log.Printf("config file: %s\n", configFile)
 	// database
 	DB = data.New[ProxyData](configFile, ProxyData{
 		Addr: "localhost:8000",
