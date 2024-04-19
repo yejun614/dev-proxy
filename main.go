@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/valyala/fasthttp"
 	"log"
 	"net/url"
 	"os"
@@ -118,10 +119,12 @@ func proxyAnother(c *fiber.Ctx) error {
 	}
 	// create proxy url
 	log.Printf("Proxy: %s -> %s\n", c.Path(), proxyUrl)
-	if err := proxy.DoRedirects(c, proxyUrl, 100); err != nil {
+	client := &fasthttp.Client{
+		ReadBufferSize: 40890,
+	}
+	if err := proxy.DoRedirects(c, proxyUrl, 100, client); err != nil {
 		return err
 	}
-	c.Response().Header.Del(fiber.HeaderServer)
 	// set session
 	sess, err := store.Get(c)
 	if err != nil {
