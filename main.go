@@ -75,7 +75,11 @@ func sessionRedirect(c *fiber.Ctx) error {
 	} else if sessKey != nil {
 		// redirect
 		log.Printf("session redirect: %s\n", c.Path())
-		c.Path(fmt.Sprintf("/%s/%s", sessKey, c.Path()[1:]))
+		if sessKey == "" {
+			c.Path(fmt.Sprintf("/%s", c.Path()[1:]))
+		} else {
+			c.Path(fmt.Sprintf("/%s/%s", sessKey, c.Path()[1:]))
+		}
 	}
 	// session save
 	if err := sess.Save(); err != nil {
@@ -110,6 +114,15 @@ func proxyAnother(c *fiber.Ctx) error {
 		return err
 	}
 	c.Response().Header.Del(fiber.HeaderServer)
+	// set session
+	sess, err := store.Get(c)
+	if err != nil {
+		log.Fatal(err)
+	}
+	sess.Set("key", key)
+	if err := sess.Save(); err != nil {
+		log.Fatal(err)
+	}
 	// done
 	return nil
 }
