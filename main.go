@@ -204,10 +204,9 @@ func StartServer() {
 	// add middlewares
 	App.Use(logger.New())
 	App.Use(cors.New())
-	// hello routes
-	App.All("/", hello)
 	// admin routes
 	admin := App.Group("/dev-proxy/")
+	admin.Get("/hello", hello)
 	admin.Get("/admin", adminGetPage)
 	admin.Get("/data", adminGetData)
 	admin.Post("/data", adminPostData)
@@ -217,6 +216,8 @@ func StartServer() {
 	addStatics()
 	// add routes
 	App.All("/:key/*", proxyAnother)
+	// root routes
+	App.All("/", proxyAnother)
 	// start fiber app
 	log.Println("Press Ctrl+C to shut down the server.")
 	App.Listen(DB.Data.Addr)
