@@ -105,7 +105,13 @@ func proxyAnother(c *fiber.Ctx) error {
 		}
 	}
 	// proxy url
-	proxyUrl, err := url.JoinPath(proxyAddr, c.Path()[len(key)+1:])
+	path := c.OriginalURL()[len(key)+1:]
+	proxyUrl, err := url.JoinPath(proxyAddr, path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// regenerate for path
+	proxyUrl, err = url.PathUnescape(proxyUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
