@@ -95,11 +95,19 @@ func proxyAnother(c *fiber.Ctx) error {
 	// check proxies
 	proxyAddr, check := DB.Data.Proxies[key]
 	if !check {
-		// not found error
-		return c.SendStatus(fiber.StatusNotFound)
+		key = ""
+		proxyAddr, check = DB.Data.Proxies[key]
+
+		if !check {
+			// not found error
+			return c.SendStatus(fiber.StatusNotFound)
+		}
 	}
 	// proxy url
-	proxyUrl := proxyAddr + c.Path()[len(key)+1:]
+	proxyUrl, err := url.JoinPath(proxyAddr, c.Path()[len(key)+1:])
+	if err != nil {
+		log.Fatal(err)
+	}
 	// websocket
 	if websocket.IsWebSocketUpgrade(c) {
 		c.Locals("allowed", true)
