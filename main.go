@@ -119,12 +119,16 @@ func proxyAnother(c *fiber.Ctx) error {
 	}
 	// create proxy url
 	log.Printf("Proxy: %s -> %s\n", c.Path(), proxyUrl)
+	// create proxy client
 	client := &fasthttp.Client{
 		ReadBufferSize: 40890,
 	}
+	// let's proxy
 	if err := proxy.DoRedirects(c, proxyUrl, 100, client); err != nil {
 		return err
 	}
+	// add cors headers
+	c.Append("Access-Control-Allow-Origin", "*")
 	// set session
 	sess, err := store.Get(c)
 	if err != nil {
